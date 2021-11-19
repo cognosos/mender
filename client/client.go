@@ -16,9 +16,11 @@ package client
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/godbus/dbus"
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"path"
 	"strings"
 	"time"
@@ -286,7 +288,7 @@ func New(conf Config) (*ApiClient, error) {
 
 	if client.Transport == nil {
 		client.Transport = &http.Transport{
-			Proxy: http.ProxyFromEnvironment,
+			Proxy: autoProxy,
 		}
 	}
 	// set connection timeout
@@ -637,3 +639,46 @@ func unmarshalErrorMessage(r io.Reader) string {
 	}
 	return e.Error
 }
+
+func findProxyForURLWithPacRunner(req *http.Request) (*url.URL, error) {
+	// Don't close conn since this is a shared connection by dbus library.
+	conn, err := dbus.SystemBus()
+	if err != nil {
+		return nil, nil
+	}
+
+	var s string
+	obj := conn.Object("org.pacrunner", "/org/pacrunner/client")
+	err = obj.Call("org.pacrunner.Client.FindProxyForURL", 0, req.URL.String(), req.Host).Store(&s)
+	if err != nil {
+		return nil, err
+	}
+
+	if !strings.HasPrefix(s, "PROXY") {
+		return nil, nil
+	}
+	s = s[6:]
+
+	if !strings.HasPrefix(s, "http://") && !strings.HasPrefix(s, "https://") {
+		s = "http://" + s
+	}
+	url, err := url.Parse(s)
+	if err == nil {
+		log.Printf("Using proxy from AutoProxy: %s", url)
+	}
+	return url, err
+}
+
+func autoProxy(req *http.Request) (*url.URL, error) {
+	url, err := http.ProxyFromEnvironment(req)
+	if url != nil || err != nil {
+		log.Printf("Using proxy from environment: %s", url)
+		return url, err
+	}
+
+	url, err = findProxyForURLWithPacRunner(req)
+
+	// Using PacRunner is an optional fallback so failure to use it should not propagate.
+	return url, nil
+}
+

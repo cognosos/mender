@@ -545,11 +545,16 @@ func (opts *setupOptionsType) tryLoginhostedMender(
 	stdin *stdinReader, validEmailRegex *regexp.Regexp) error {
 	// Test Hosted Mender credentials
 	var err error
-	var client *http.Client
+	var httpClient *http.Client
 	var authReq *http.Request
 	var response *http.Response
 	for {
-		client = &http.Client{}
+		httpClient = &http.Client{}
+		if httpClient.Transport == nil {
+			httpClient.Transport = &http.Transport{
+				Proxy: client.AutoProxy,
+			}
+		}
 		authReq, err = http.NewRequest(
 			"POST",
 			hostedMenderURL+
@@ -560,7 +565,7 @@ func (opts *setupOptionsType) tryLoginhostedMender(
 				"authorization request.")
 		}
 		authReq.SetBasicAuth(opts.username, opts.password)
-		response, err = client.Do(authReq)
+		response, err = httpClient.Do(authReq)
 
 		if response != nil {
 			defer response.Body.Close()
@@ -601,7 +606,7 @@ func (opts *setupOptionsType) tryLoginhostedMender(
 			"Error reading authorization token")
 	}
 
-	return opts.getTenantToken(client, userToken)
+	return opts.getTenantToken(httpClient, userToken)
 }
 
 func (opts *setupOptionsType) askHostedMenderCredentials(ctx *cli.Context,

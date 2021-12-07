@@ -288,7 +288,7 @@ func New(conf Config) (*ApiClient, error) {
 
 	if client.Transport == nil {
 		client.Transport = &http.Transport{
-			Proxy: autoProxy,
+			Proxy: AutoProxy,
 		}
 	}
 	// set connection timeout
@@ -522,7 +522,7 @@ func newHttpsClient(conf Config) (*http.Client, error) {
 		log.Warn("certificate verification skipped..")
 	}
 	transport := http.Transport{
-		Proxy: http.ProxyFromEnvironment,
+		Proxy: AutoProxy,
 		DialTLS: func(network string, addr string) (net.Conn, error) {
 			return dialOpenSSL(ctx, &conf, network, addr)
 		},
@@ -647,38 +647,44 @@ func findProxyForURLWithPacRunner(req *http.Request) (*url.URL, error) {
 		return nil, nil
 	}
 
-	var s string
+	var pac string
 	obj := conn.Object("org.pacrunner", "/org/pacrunner/client")
-	err = obj.Call("org.pacrunner.Client.FindProxyForURL", 0, req.URL.String(), req.Host).Store(&s)
+	err = obj.Call("org.pacrunner.Client.FindProxyForURL", 0, req.URL.String(), req.Host).Store(&pac)
 	if err != nil {
 		return nil, err
 	}
 
-	if !strings.HasPrefix(s, "PROXY") {
-		return nil, nil
+	if strings.Contains(pac, "PROXY") {
+		proxies := strings.Split(pac, ";")
+		for _, p := range proxies {
+			prox := strings.Split(p, "PROXY")
+			for _, prx := range prox {
+				proxy := strings.ReplaceAll(prx, " ", "")
+				_, err := net.Dial("tcp", proxy)
+				if err != nil {
+					continue
+				}
+				if strings.Contains(proxy, "//") {
+					return url.Parse(proxy)
+				} else {
+					return url.Parse("proxy://" + proxy)
+				}
+			}
+		}
 	}
-	s = s[6:]
 
-	if !strings.HasPrefix(s, "http://") && !strings.HasPrefix(s, "https://") {
-		s = "http://" + s
-	}
-	url, err := url.Parse(s)
-	if err == nil {
-		log.Printf("Using proxy from AutoProxy: %s", url)
-	}
-	return url, err
+	return nil, nil
 }
 
-func autoProxy(req *http.Request) (*url.URL, error) {
+// AutoProxy Configures proxy using environment, or with a PAC file results over dbus
+func AutoProxy(req *http.Request) (*url.URL, error) {
 	url, err := http.ProxyFromEnvironment(req)
-	if url != nil || err != nil {
-		log.Printf("Using proxy from environment: %s", url)
-		return url, err
+	if url == nil || err != nil {
+		return nil, nil
 	}
 
-	url, err = findProxyForURLWithPacRunner(req)
+	url, _ = findProxyForURLWithPacRunner(req)
 
-	// Using PacRunner is an optional fallback so failure to use it should not propagate.
 	return url, nil
 }
 

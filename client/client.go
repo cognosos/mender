@@ -16,9 +16,11 @@ package client
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/godbus/dbus"
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"path"
 	"strings"
 	"time"
@@ -281,7 +283,7 @@ func New(conf Config) (*ApiClient, error) {
 
 	if client.Transport == nil {
 		client.Transport = &http.Transport{
-			Proxy: http.ProxyFromEnvironment,
+			Proxy: AutoProxy,
 		}
 	}
 	// set connection timeout
@@ -515,7 +517,7 @@ func newHttpsClient(conf Config) (*http.Client, error) {
 		log.Warn("certificate verification skipped..")
 	}
 	transport := http.Transport{
-		Proxy: http.ProxyFromEnvironment,
+		Proxy: AutoProxy,
 		DialTLS: func(network string, addr string) (net.Conn, error) {
 			return dialOpenSSL(ctx, &conf, network, addr)
 		},
@@ -629,4 +631,52 @@ func unmarshalErrorMessage(r io.Reader) string {
 		return string(resp)
 	}
 	return e.Error
+}
+
+func findProxyForURLWithPacRunner(req *http.Request) (*url.URL, error) {
+	// Don't close conn since this is a shared connection by dbus library.
+	conn, err := dbus.SystemBus()
+	if err != nil {
+		return nil, nil
+	}
+
+	var pac string
+	obj := conn.Object("org.pacrunner", "/org/pacrunner/client")
+	err = obj.Call("org.pacrunner.Client.FindProxyForURL", 0, req.URL.String(), req.Host).Store(&pac)
+	if err != nil {
+		return nil, err
+	}
+
+	if strings.Contains(pac, "PROXY") {
+		proxies := strings.Split(pac, ";")
+		for _, p := range proxies {
+			prox := strings.Split(p, "PROXY")
+			for _, prx := range prox {
+				proxy := strings.ReplaceAll(prx, " ", "")
+				_, err := net.Dial("tcp", proxy)
+				if err != nil {
+					continue
+				}
+				if strings.Contains(proxy, "//") {
+					return url.Parse(proxy)
+				} else {
+					return url.Parse("proxy://" + proxy)
+				}
+			}
+		}
+	}
+
+	return nil, nil
+}
+
+// AutoProxy Configures proxy using environment, or with a PAC file results over dbus
+func AutoProxy(req *http.Request) (*url.URL, error) {
+	url, err := http.ProxyFromEnvironment(req)
+	if url == nil || err != nil {
+		return nil, nil
+	}
+
+	url, _ = findProxyForURLWithPacRunner(req)
+
+	return url, nil
 }

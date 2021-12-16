@@ -3,6 +3,7 @@ module github.com/mendersoftware/mender
 go 1.14
 
 require (
+	github.com/bdandy/go-socks4 v1.2.2
 	github.com/bmatsuo/lmdb-go v1.6.1-0.20160816100615-69ad631904c9
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/godbus/dbus v4.1.0+incompatible
@@ -16,7 +17,7 @@ require (
 	github.com/ungerik/go-sysfs v0.0.0-20190613143942-7f098ddb67a6
 	github.com/urfave/cli/v2 v2.2.0
 	golang.org/x/crypto v0.0.0-20191117063200-497ca9f6d64f
-	golang.org/x/sys v0.0.0-20200116001909-b77594299b42
+	golang.org/x/sys v0.0.0-20210423082822-04245dca01da
 )
 
 replace github.com/urfave/cli/v2 => github.com/mendersoftware/cli/v2 v2.1.1-minimal

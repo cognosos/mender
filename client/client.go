@@ -30,6 +30,7 @@ import (
 	"github.com/mendersoftware/openssl"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
+	_ "github.com/bdandy/go-socks4"
 )
 
 const (
@@ -647,26 +648,73 @@ func findProxyForURLWithPacRunner(req *http.Request) (*url.URL, error) {
 		return nil, err
 	}
 
-	if strings.Contains(pac, "PROXY") {
+	if strings.Contains(pac, "PROXY") || strings.Contains(pac, "HTTP") || strings.Contains(pac, "SOCKS") {
 		proxies := strings.Split(pac, ";")
 		for _, p := range proxies {
-			prox := strings.Split(p, "PROXY")
-			for _, prx := range prox {
-				proxy := strings.ReplaceAll(prx, " ", "")
-				_, err := net.Dial("tcp", proxy)
-				if err != nil {
-					continue
+			switch {
+			case strings.Contains(pac, "PROXY"):
+				prox := strings.Split(p, "PROXY")
+				u, err, success := testProxy(prox, "proxy")
+				if success {
+					return u, err
 				}
-				if strings.Contains(proxy, "//") {
-					return url.Parse(proxy)
-				} else {
-					return url.Parse("proxy://" + proxy)
+			case strings.Contains(pac, "HTTPS"):
+				prox := strings.Split(p, "HTTPS")
+				u, err, success := testProxy(prox, "https")
+				if success {
+					return u, err
+				}
+			case strings.Contains(pac, "HTTP"):
+				prox := strings.Split(p, "HTTP")
+				u, err, success := testProxy(prox, "http")
+				if success {
+					return u, err
+				}
+			case strings.Contains(pac, "SOCKS5"):
+				prox := strings.Split(p, "SOCKS5")
+				u, err, success := testProxy(prox, "socks5")
+				if success {
+					return u, err
+				}
+			case strings.Contains(pac, "SOCKS4"):
+				prox := strings.Split(p, "SOCKS4")
+				u, err, success := testProxy(prox, "socks4")
+				if success {
+					return u, err
+				}
+			case strings.Contains(pac, "SOCKS"):
+				prox := strings.Split(p, "SOCKS")
+				u, err, success := testProxy(prox, "socks5")
+				if success {
+					return u, err
+				}
+				u, err, success = testProxy(prox, "socks4")
+				if success {
+					return u, err
 				}
 			}
 		}
 	}
 
 	return nil, nil
+}
+
+func testProxy(prox []string, protocol string) (*url.URL, error, bool) {
+	for _, prx := range prox {
+		proxy := strings.ReplaceAll(prx, " ", "")
+		_, err := net.Dial("tcp", proxy)
+		if err != nil {
+			continue
+		}
+		if strings.Contains(proxy, "//") {
+			u, e := url.Parse(proxy)
+			return u, e, true
+		} else {
+			u, e := url.Parse(protocol + "://" + proxy)
+			return u, e, true
+		}
+	}
+	return nil, nil, false
 }
 
 // AutoProxy Configures proxy using environment, or with a PAC file results over dbus

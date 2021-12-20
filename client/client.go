@@ -656,40 +656,47 @@ func findProxyForURLWithPacRunner(req *http.Request) (*url.URL, error) {
 				prox := strings.Split(p, "PROXY")
 				u, err, success := testProxy(prox, "http")
 				if success {
+					log.Debugf("Using proxy from autoproxy: %s", u)
 					return u, err
 				}
 			case strings.Contains(pac, "HTTPS"):
 				prox := strings.Split(p, "HTTPS")
 				u, err, success := testProxy(prox, "https")
 				if success {
+					log.Debugf("Using proxy from autoproxy: %s", u)
 					return u, err
 				}
 			case strings.Contains(pac, "HTTP"):
 				prox := strings.Split(p, "HTTP")
 				u, err, success := testProxy(prox, "http")
 				if success {
+					log.Debugf("Using proxy from autoproxy: %s", u)
 					return u, err
 				}
 			case strings.Contains(pac, "SOCKS5"):
 				prox := strings.Split(p, "SOCKS5")
 				u, err, success := testProxy(prox, "socks5")
 				if success {
+					log.Debugf("Using proxy from autoproxy: %s", u)
 					return u, err
 				}
 			case strings.Contains(pac, "SOCKS4"):
 				prox := strings.Split(p, "SOCKS4")
 				u, err, success := testProxy(prox, "socks4")
 				if success {
+					log.Debugf("Using proxy from autoproxy: %s", u)
 					return u, err
 				}
 			case strings.Contains(pac, "SOCKS"):
 				prox := strings.Split(p, "SOCKS")
 				u, err, success := testProxy(prox, "socks5")
 				if success {
+					log.Debugf("Using proxy from autoproxy: %s", u)
 					return u, err
 				}
 				u, err, success = testProxy(prox, "socks4")
 				if success {
+					log.Debugf("Using proxy from autoproxy: %s", u)
 					return u, err
 				}
 			}
@@ -704,6 +711,7 @@ func testProxy(prox []string, protocol string) (*url.URL, error, bool) {
 		proxy := strings.ReplaceAll(prx, " ", "")
 		_, err := net.Dial("tcp", proxy)
 		if err != nil {
+			log.Debugf("Could not dial proxy: %s", proxy)
 			continue
 		}
 		if strings.Contains(proxy, "//") {
@@ -721,6 +729,7 @@ func testProxy(prox []string, protocol string) (*url.URL, error, bool) {
 func AutoProxy(req *http.Request) (*url.URL, error) {
 	url, err := http.ProxyFromEnvironment(req)
 	if url != nil || err != nil {
+		log.Debugf("Using proxy from environment: %s", url)
 		return url, err
 	}
 

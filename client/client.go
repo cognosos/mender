@@ -654,7 +654,7 @@ func findProxyForURLWithPacRunner(req *http.Request) (*url.URL, error) {
 			switch {
 			case strings.Contains(pac, "PROXY"):
 				prox := strings.Split(p, "PROXY")
-				u, err, success := testProxy(prox, "proxy")
+				u, err, success := testProxy(prox, "http")
 				if success {
 					return u, err
 				}

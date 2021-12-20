@@ -720,8 +720,8 @@ func testProxy(prox []string, protocol string) (*url.URL, error, bool) {
 // AutoProxy Configures proxy using environment, or with a PAC file results over dbus
 func AutoProxy(req *http.Request) (*url.URL, error) {
 	url, err := http.ProxyFromEnvironment(req)
-	if url == nil || err != nil {
-		return nil, nil
+	if url != nil || err != nil {
+		return url, err
 	}
 
 	url, _ = findProxyForURLWithPacRunner(req)

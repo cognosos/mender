@@ -708,7 +708,10 @@ func findProxyForURLWithPacRunner(req *http.Request) (*url.URL, error) {
 
 func testProxy(prox []string, protocol string) (*url.URL, error, bool) {
 	for _, prx := range prox {
-		proxy := strings.ReplaceAll(prx, " ", "")
+		proxy := strings.TrimSpace(prx)
+		if proxy == "" {
+			continue
+		}
 		_, err := net.Dial("tcp", proxy)
 		if err != nil {
 			log.Debugf("Could not dial proxy: %s", proxy)

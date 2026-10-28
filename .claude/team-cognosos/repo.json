@@ -1,0 +1,6 @@
+{
+  "repo": "cognosos/mender",
+  "assemblies": {
+    "base": "any"
+  }
+}
